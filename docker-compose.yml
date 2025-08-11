@@ -1,0 +1,260 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: astralstream-postgres
+    environment:
+      POSTGRES_DB: astralstream
+      POSTGRES_USER: astralstream
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-astralstream123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - astralstream-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U astralstream"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: astralstream-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - astralstream-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Elasticsearch for search
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: astralstream-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - astralstream-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # RabbitMQ Message Queue
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: astralstream-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-astralstream}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbitmq123}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - astralstream-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # MinIO Object Storage (S3-compatible)
+  minio:
+    image: minio/minio:latest
+    container_name: astralstream-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - astralstream-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: astralstream-api-gateway
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      DATABASE_URL: postgresql://astralstream:${POSTGRES_PASSWORD:-astralstream123}@postgres:5432/astralstream
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-astralstream}:${RABBITMQ_PASSWORD:-rabbitmq123}@rabbitmq:5672
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-key}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001,http://localhost:3002}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
+      - elasticsearch
+      - rabbitmq
+      - minio
+    networks:
+      - astralstream-network
+    restart: unless-stopped
+
+  # Media Processor Service
+  media-processor:
+    build:
+      context: ./services/media-processor
+      dockerfile: Dockerfile
+    container_name: astralstream-media-processor
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-astralstream}:${RABBITMQ_PASSWORD:-rabbitmq123}@rabbitmq:5672
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      DATABASE_URL: postgresql://astralstream:${POSTGRES_PASSWORD:-astralstream123}@postgres:5432/astralstream
+    depends_on:
+      - rabbitmq
+      - minio
+      - postgres
+    networks:
+      - astralstream-network
+    restart: unless-stopped
+
+  # AI Engine Service
+  ai-engine:
+    build:
+      context: ./services/ai-engine
+      dockerfile: Dockerfile
+    container_name: astralstream-ai-engine
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-astralstream}:${RABBITMQ_PASSWORD:-rabbitmq123}@rabbitmq:5672
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379
+    depends_on:
+      - rabbitmq
+      - redis
+    networks:
+      - astralstream-network
+    restart: unless-stopped
+
+  # Sync Service
+  sync-service:
+    build:
+      context: ./services/sync-service
+      dockerfile: Dockerfile
+    container_name: astralstream-sync-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://astralstream:${POSTGRES_PASSWORD:-astralstream123}@postgres:5432/astralstream
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-astralstream}:${RABBITMQ_PASSWORD:-rabbitmq123}@rabbitmq:5672
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - astralstream-network
+    restart: unless-stopped
+
+  # Streaming Service
+  streaming:
+    build:
+      context: ./services/streaming
+      dockerfile: Dockerfile
+    container_name: astralstream-streaming
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3003
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379
+    ports:
+      - "3003:3003"
+    depends_on:
+      - minio
+      - redis
+    networks:
+      - astralstream-network
+    restart: unless-stopped
+
+  # Analytics Service
+  analytics:
+    build:
+      context: ./services/analytics
+      dockerfile: Dockerfile
+    container_name: astralstream-analytics
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://astralstream:${POSTGRES_PASSWORD:-astralstream123}@postgres:5432/astralstream
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-astralstream}:${RABBITMQ_PASSWORD:-rabbitmq123}@rabbitmq:5672
+    depends_on:
+      - postgres
+      - elasticsearch
+      - rabbitmq
+    networks:
+      - astralstream-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: astralstream-nginx
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api-gateway
+      - streaming
+    networks:
+      - astralstream-network
+    restart: unless-stopped
+
+networks:
+  astralstream-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  rabbitmq_data:
+  minio_data:

@@ -1,0 +1,39 @@
+{
+  "name": "astralstream-android",
+  "version": "1.0.0",
+  "description": "Advanced offline Android video player with AI features",
+  "private": true,
+  "author": "AstralStream Team",
+  "license": "MIT",
+  "homepage": "https://github.com/yourusername/AstralStream",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/AstralStream.git"
+  },
+  "scripts": {
+    "android": "cd apps/mobile && flutter run",
+    "build:apk": "cd apps/mobile && flutter build apk --release",
+    "build:bundle": "cd apps/mobile && flutter build appbundle --release",
+    "test": "cd apps/mobile && flutter test",
+    "analyze": "cd apps/mobile && flutter analyze",
+    "format": "cd apps/mobile && dart format .",
+    "clean": "cd apps/mobile && flutter clean",
+    "prepare": "husky install",
+    "commit": "cz"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^18.4.3",
+    "@commitlint/config-conventional": "^18.4.3",
+    "commitizen": "^4.3.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "husky": "^8.0.3"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "recommendations": [
+    // General
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "editorconfig.editorconfig",
+    "streetsidesoftware.code-spell-checker",
+    "usernamehw.errorlens",
+    "christian-kohler.path-intellisense",
+    "naumovs.color-highlight",
+    "wayou.vscode-todo-highlight",
+    "gruntfuggly.todo-tree",
+    
+    // Git
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+    "donjayamanne.githistory",
+    
+    // TypeScript/JavaScript
+    "ms-vscode.vscode-typescript-next",
+    "bradlc.vscode-tailwindcss",
+    "dsznajder.es7-react-js-snippets",
+    "xabikos.javascriptsnippets",
+    
+    // Flutter/Dart
+    "dart-code.dart-code",
+    "dart-code.flutter",
+    "alexisvt.flutter-snippets",
+    "nash.awesome-flutter-snippets",
+    
+    // Docker
+    "ms-azuretools.vscode-docker",
+    "ms-vscode-remote.remote-containers",
+    
+    // API Development
+    "humao.rest-client",
+    "rangav.vscode-thunder-client",
+    "42crunch.vscode-openapi",
+    
+    // Markdown
+    "yzhang.markdown-all-in-one",
+    "davidanson.vscode-markdownlint",
+    
+    // Environment
+    "mikestead.dotenv",
+    
+    // Testing
+    "orta.vscode-jest",
+    "firsttris.vscode-jest-runner",
+    
+    // Productivity
+    "johnpapa.vscode-peacock",
+    "alefragnani.project-manager",
+    "alefragnani.bookmarks",
+    "formulahendry.auto-rename-tag",
+    "formulahendry.auto-close-tag",
+    
+    // Theme (optional)
+    "github.github-vscode-theme",
+    "pkief.material-icon-theme"
+  ]
+}
