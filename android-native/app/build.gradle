@@ -1,0 +1,555 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    id 'org.jetbrains.kotlin.plugin.parcelize'
+    id 'com.google.dagger.hilt.android'
+    id 'androidx.navigation.safeargs.kotlin'
+    id 'kotlin-kapt'
+    id 'com.google.gms.google-services'
+    id 'com.google.firebase.crashlytics'
+    id 'io.gitlab.arturbosch.detekt'
+    id 'org.jlleitschuh.gradle.ktlint'
+}
+
+android {
+    namespace = 'com.astralstream.player'
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId "com.astralstream.player"
+        minSdk = 23
+        targetSdk = 34
+        versionCode 1
+        versionName "1.0.0"
+
+        testInstrumentationRunner "com.astralstream.player.HiltTestRunner"
+        testInstrumentationRunnerArguments clearPackageData: 'true'
+        
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+
+        // ExoPlayer configuration
+        buildConfigField "String", "PLAYER_USER_AGENT", '"AstralStream"'
+        
+        // Room database configuration
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments += [
+                    "room.schemaLocation": "$projectDir/schemas".toString(),
+                    "room.incremental": "true"
+                ]
+            }
+        }
+        
+        // Performance and Analytics
+        buildConfigField "boolean", "ANALYTICS_ENABLED", "false"
+        buildConfigField "String", "BUILD_TIMESTAMP", "\"${System.currentTimeMillis()}L\""
+        buildConfigField "boolean", "CRASH_REPORTING_ENABLED", "false"
+        
+        // AI Features configuration
+        buildConfigField "boolean", "AI_FEATURES_ENABLED", "true"
+        buildConfigField "int", "MAX_AI_PROCESSING_THREADS", "4"
+        
+        // Room schema location is already configured above
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+        release {
+            // Use keystore.properties for release signing
+            def keystoreProperties = new Properties()
+            def keystorePropertiesFile = rootProject.file('keystore/keystore.properties')
+            if (keystorePropertiesFile.exists()) {
+                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+                
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            } else {
+                // Fallback to debug keystore for development builds
+                storeFile file('debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
+        }
+    }
+    
+    flavorDimensions "version"
+    
+    productFlavors {
+        free {
+            dimension "version"
+            applicationIdSuffix ".free"
+            versionNameSuffix "-free"
+            
+            buildConfigField "boolean", "IS_PRO_VERSION", "false"
+            buildConfigField "boolean", "ADS_ENABLED", "false"
+            buildConfigField "int", "MAX_CONCURRENT_DOWNLOADS", "2"
+            buildConfigField "boolean", "ADVANCED_AI_FEATURES", "false"
+            buildConfigField "boolean", "ANALYTICS_ENABLED", "false"
+            buildConfigField "boolean", "CRASH_REPORTING_ENABLED", "false"
+            
+            manifestPlaceholders = [
+                appName: "AstralStream",
+                appIcon: "@mipmap/ic_launcher"
+            ]
+        }
+        
+        pro {
+            dimension "version"
+            applicationIdSuffix ""
+            versionNameSuffix ""
+            
+            buildConfigField "boolean", "IS_PRO_VERSION", "true"
+            buildConfigField "boolean", "ADS_ENABLED", "false"
+            buildConfigField "int", "MAX_CONCURRENT_DOWNLOADS", "10"
+            buildConfigField "boolean", "ADVANCED_AI_FEATURES", "true"
+            buildConfigField "boolean", "ANALYTICS_ENABLED", "true"
+            buildConfigField "boolean", "CRASH_REPORTING_ENABLED", "true"
+            
+            manifestPlaceholders = [
+                appName: "AstralStream Pro",
+                appIcon: "@mipmap/ic_launcher"
+            ]
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            minifyEnabled = false
+            shrinkResources = false
+            signingConfig signingConfigs.debug
+            
+            buildConfigField "boolean", "DEBUG_MODE", "true"
+            buildConfigField "boolean", "LOGGING_ENABLED", "true"
+            buildConfigField "String", "LOG_LEVEL", "\"DEBUG\""
+            
+            // Enable strict mode in debug
+            buildConfigField "boolean", "STRICT_MODE_ENABLED", "true"
+            
+            // Test coverage
+
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+            
+            manifestPlaceholders = [
+                enableCrashReporting: false,
+                enableAnalytics: false
+            ]
+            enableUnitTestCoverage true
+            enableAndroidTestCoverage true
+        }
+        
+        release {
+            minifyEnabled = true
+            shrinkResources = true
+            signingConfig signingConfigs.release
+            
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            buildConfigField "boolean", "DEBUG_MODE", "false"
+            buildConfigField "boolean", "LOGGING_ENABLED", "false"
+            buildConfigField "String", "LOG_LEVEL", "\"ERROR\""
+            buildConfigField "boolean", "STRICT_MODE_ENABLED", "false"
+            
+            manifestPlaceholders = [
+                enableCrashReporting: true,
+                enableAnalytics: false // Privacy-focused
+            ]
+            
+            // Optimize for release
+            postprocessing {
+                removeUnusedCode true
+                removeUnusedResources true
+                obfuscate false // Keep symbols readable for crash reports
+                optimizeCode true
+                proguardFile 'proguard-rules.pro'
+            }
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+        
+        // Enable incremental annotation processing
+        incremental = true
+    }
+    
+    kotlinOptions {
+        jvmTarget = '11'
+        freeCompilerArgs += [
+            "-opt-in=kotlin.RequiresOptIn",
+            "-opt-in=kotlin.ExperimentalStdlibApi",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.media3.common.util.UnstableApi"
+        ]
+    }
+    
+    buildFeatures {
+        compose = true
+        buildConfig = true
+        viewBinding = false
+        dataBinding = false
+    }
+    
+    composeOptions {
+        kotlinCompilerExtensionVersion '1.5.15'
+    }
+    
+    // APK Splits removed (deprecated in AGP 10.0)
+    // Use Android App Bundle instead for optimized APKs
+    
+    packagingOptions {
+        resources {
+            excludes += [
+                '/META-INF/{AL2.0,LGPL2.1}',
+                '/META-INF/DEPENDENCIES',
+                '/META-INF/LICENSE',
+                '/META-INF/LICENSE.txt',
+                '/META-INF/NOTICE',
+                '/META-INF/NOTICE.txt',
+                '/META-INF/ASL2.0',
+                '/META-INF/LGPL2.1',
+                '**/*.kotlin_metadata',
+                '**/*.version',
+                '**/*.properties',
+                'DebugProbesKt.bin'
+            ]
+        }
+        
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+    
+    bundle {
+        language {
+            enableSplit = false
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+    
+    lint {
+        checkReleaseBuilds true
+        abortOnError false
+        warningsAsErrors false
+        
+        disable 'MissingTranslation', 'ExtraTranslation'
+        
+        xmlReport true
+        htmlReport true
+        
+        baseline file('lint-baseline.xml')
+    }
+    
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+            returnDefaultValues = true
+            
+            all {
+                // Increase heap size for tests
+                maxHeapSize = "2048m"
+                
+                // Enable parallel execution
+                maxParallelForks = Runtime.runtime.availableProcessors()
+                
+                // JVM arguments for tests
+                jvmArgs '-XX:MaxMetaspaceSize=512m'
+                
+                testLogging {
+                    events "passed", "skipped", "failed", "standardOut", "standardError"
+                    showStandardStreams = false
+                    showExceptions = true
+                    showCauses = true
+                    showStackTraces = true
+                }
+            }
+        }
+        
+        animationsDisabled = true
+        
+        execution 'ANDROIDX_TEST_ORCHESTRATOR'
+    }
+}
+
+dependencies {
+    implementation project(':core')
+    implementation project(':player')
+    implementation project(':data')
+    implementation project(':features')
+    // Temporarily disabled due to TensorFlow Lite compatibility issues
+    // implementation project(':ai')
+
+    // Core Android
+    implementation "androidx.core:core-ktx:$core_ktx_version"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_version"
+    implementation "androidx.activity:activity-compose:$compose_activity_version"
+    implementation "androidx.fragment:fragment-ktx:$fragment_version"
+    implementation "androidx.core:core-splashscreen:1.0.1"
+    
+    // Jetpack Compose BOM
+    implementation platform("androidx.compose:compose-bom:$compose_bom_version")
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-graphics'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material:material-icons-extended'
+    
+    // Material Design
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation "androidx.compose.runtime:runtime-livedata"
+    implementation "androidx.compose.animation:animation"
+    
+    // Navigation
+    implementation "androidx.navigation:navigation-compose:$nav_version"
+    implementation "androidx.navigation:navigation-fragment-ktx:$nav_version"
+    implementation "androidx.navigation:navigation-ui-ktx:$nav_version"
+    
+    // Media3/ExoPlayer
+    implementation "androidx.media3:media3-exoplayer:$media3_version"
+    implementation "androidx.media3:media3-exoplayer-dash:$media3_version"
+    implementation "androidx.media3:media3-exoplayer-hls:$media3_version"
+    implementation "androidx.media3:media3-exoplayer-rtsp:$media3_version"
+    implementation "androidx.media3:media3-exoplayer-smoothstreaming:$media3_version"
+    implementation "androidx.media3:media3-ui:$media3_version"
+    implementation "androidx.media3:media3-session:$media3_version"
+    implementation "androidx.media3:media3-datasource-okhttp:$media3_version"
+    implementation "androidx.media3:media3-extractor:$media3_version"
+    implementation "androidx.media3:media3-decoder:$media3_version"
+    implementation "androidx.media3:media3-transformer:$media3_version"
+    
+    // Room Database
+    implementation "androidx.room:room-runtime:$room_version"
+    implementation "androidx.room:room-ktx:$room_version"
+    kapt "androidx.room:room-compiler:$room_version"
+    
+    // Dependency Injection - Hilt
+    implementation "com.google.dagger:hilt-android:$hilt_version"
+    implementation "androidx.hilt:hilt-navigation-compose:$hilt_navigation_compose_version"
+    implementation "androidx.hilt:hilt-work:1.2.0"
+    kapt "com.google.dagger:hilt-compiler:$hilt_version"
+    kapt "androidx.hilt:hilt-compiler:1.2.0"
+    
+    // Coroutines
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutines_version"
+    
+    // Networking
+    implementation "com.squareup.retrofit2:retrofit:$retrofit_version"
+    implementation "com.squareup.retrofit2:converter-gson:$retrofit_version"
+    implementation "com.squareup.okhttp3:okhttp:$okhttp_version"
+    implementation "com.squareup.okhttp3:logging-interceptor:$okhttp_version"
+    
+    // Image Loading
+    implementation "com.github.bumptech.glide:glide:$glide_version"
+    implementation "com.github.bumptech.glide:compose:1.0.0-beta01"
+    implementation "io.coil-kt:coil-compose:$coil_version"
+    kapt "com.github.bumptech.glide:compiler:$glide_version"
+    
+    // WorkManager
+    implementation "androidx.work:work-runtime-ktx:$work_version"
+    
+    // Storage Access Framework
+    implementation "androidx.documentfile:documentfile:1.0.1"
+    
+    // Network Features
+    implementation 'eu.agno3.jcifs:jcifs-ng:2.1.9'  // SMB/CIFS support
+    // DLNA support will be added in a later phase with a working library
+    implementation 'com.google.android.gms:play-services-cast-framework:22.0.0'  // Chromecast
+    
+    // Accompanist libraries
+    implementation "com.google.accompanist:accompanist-permissions:$accompanist_version"
+    implementation "com.google.accompanist:accompanist-systemuicontroller:$accompanist_version"
+    implementation "com.google.accompanist:accompanist-navigation-animation:$accompanist_version"
+    implementation "com.google.accompanist:accompanist-pager:$accompanist_version"
+    
+    // Palette
+    implementation "androidx.palette:palette-ktx:1.0.0"
+    
+    // Biometric
+    implementation "androidx.biometric:biometric:$biometric_version"
+    
+    // Preferences DataStore
+    implementation "androidx.datastore:datastore-preferences:$datastore_version"
+    
+    // ML Kit
+    implementation "com.google.mlkit:text-recognition:$mlkit_text_recognition_version"
+    implementation "com.google.mlkit:language-id:$mlkit_language_id_version"
+    implementation "com.google.mlkit:translate:$mlkit_translate_version"
+    implementation "com.google.mlkit:face-detection:$mlkit_face_detection_version"
+    implementation "com.google.mlkit:object-detection:$mlkit_object_detection_version"
+    
+    // TensorFlow Lite
+    implementation "org.tensorflow:tensorflow-lite:$tensorflow_lite_version"
+    implementation "org.tensorflow:tensorflow-lite-gpu:$tensorflow_lite_gpu_version"
+    implementation "org.tensorflow:tensorflow-lite-support:$tensorflow_lite_support_version"
+    implementation "org.tensorflow:tensorflow-lite-metadata:$tensorflow_lite_support_version"
+    implementation "org.tensorflow:tensorflow-lite-select-tf-ops:$tensorflow_lite_version"
+    
+    // Firebase (Crash Reporting & Analytics)
+    implementation platform("com.google.firebase:firebase-bom:$firebase_bom_version")
+    implementation 'com.google.firebase:firebase-crashlytics-ktx'
+    implementation 'com.google.firebase:firebase-analytics-ktx'
+    implementation 'com.google.firebase:firebase-auth-ktx'
+    implementation 'com.google.firebase:firebase-firestore-ktx'
+    implementation 'com.google.firebase:firebase-storage-ktx'
+    
+    // Performance Monitoring
+    debugImplementation "com.squareup.leakcanary:leakcanary-android:$leakcanary_version"
+    
+    // Testing
+    testImplementation "junit:junit:$junit_version"
+    testImplementation "io.mockk:mockk:$mockk_version"
+    testImplementation "org.mockito:mockito-core:$mockito_version"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutines_version"
+    testImplementation "androidx.arch.core:core-testing:$arch_testing_version"
+    testImplementation "androidx.room:room-testing:$room_version"
+    testImplementation "org.robolectric:robolectric:$robolectric_version"
+    testImplementation "app.cash.turbine:turbine:$turbine_version"
+    testImplementation "com.google.truth:truth:1.4.4"
+    
+    // Android Test Dependencies
+    androidTestImplementation "androidx.test.ext:junit:$androidx_test_ext_version"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$espresso_version"
+    androidTestImplementation "androidx.test.espresso:espresso-contrib:$espresso_version"
+    androidTestImplementation "androidx.test.espresso:espresso-intents:$espresso_version"
+    androidTestImplementation platform("androidx.compose:compose-bom:$compose_bom_version")
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
+    androidTestImplementation "androidx.navigation:navigation-testing:$nav_version"
+    androidTestImplementation "androidx.work:work-testing:$work_version"
+    androidTestImplementation "com.google.dagger:hilt-android-testing:$hilt_version"
+    androidTestImplementation 'androidx.test:runner:1.6.1'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
+    
+    kaptAndroidTest "com.google.dagger:hilt-android-compiler:$hilt_version"
+    
+    // Debug Dependencies
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+    
+    // Test Orchestrator
+    androidTestUtil 'androidx.test:orchestrator:1.5.0'
+}
+
+// Apply code quality plugins
+apply plugin: 'io.gitlab.arturbosch.detekt'
+apply plugin: 'org.jlleitschuh.gradle.ktlint'
+
+// Detekt configuration
+detekt {
+    buildUponDefaultConfig = true
+    allRules = false
+    config = files("$projectDir/config/detekt/detekt.yml")
+    baseline = file("$projectDir/config/detekt/baseline.xml")
+    
+    reports {
+        html.enabled = true
+        xml.enabled = true
+        txt.enabled = true
+        sarif.enabled = true
+    }
+}
+
+// KtLint configuration
+ktlint {
+    debug = true
+    verbose = true
+    android = true
+    outputToConsole = true
+    outputColorName = "RED"
+    ignoreFailures = false
+    
+    reporters {
+        reporter "plain"
+        reporter "checkstyle"
+        reporter "sarif"
+    }
+}
+
+// Task to copy google-services.json for different flavors
+android.applicationVariants.all { variant ->
+    def flavorName = variant.getFlavorName()
+    def buildType = variant.getBuildType().name
+    
+    if (flavorName == 'fdroid') {
+        // Remove Google services for F-Droid build
+        variant.getGenerateBuildConfigProvider().configure {
+            enabled = false
+        }
+    }
+}
+
+// Custom tasks for release preparation
+task generateReleaseNotes {
+    doLast {
+        def releaseNotesFile = new File(projectDir, "release-notes.md")
+        def version = android.defaultConfig.versionName
+        def date = new Date().format("yyyy-MM-dd")
+        
+        releaseNotesFile.text = """
+# Release Notes - v${version} (${date})
+
+## New Features
+- 
+
+## Improvements
+- 
+
+## Bug Fixes
+- 
+
+## Known Issues
+- 
+
+## Compatibility
+- Minimum Android version: API 21 (Android 5.0)
+- Target Android version: API 34 (Android 14)
+- Supported architectures: arm64-v8a, armeabi-v7a, x86, x86_64
+        """.trim()
+    }
+}
+
+// Automated version name generation based on git
+def getVersionName() {
+    try {
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine 'git', 'describe', '--tags', '--dirty', '--always'
+            standardOutput = stdout
+        }
+        return stdout.toString().trim()
+    } catch (Exception e) {
+        return android.defaultConfig.versionName
+    }
+}
+
+// Update version name with git info for debug builds
+android.applicationVariants.all { variant ->
+    if (variant.buildType.name == 'debug') {
+        variant.outputs.all { output ->
+            def versionName = getVersionName()
+            output.versionNameOverride = versionName
+        }
+    }
+}

@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build-release:
+    name: Build Release APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      matrix:
+        variant: [freeRelease, proRelease]
+        distribution: [playstore, github, fdroid]
+        exclude:
+          - variant: freeRelease
+            distribution: fdroid
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v3
+      with:
+        gradle-home-cache-cleanup: true
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Decode keystore
+      run: |
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/release.keystore
+
+    - name: Create keystore properties
+      run: |
+        echo "storeFile=../keystore/release.keystore" >> keystore/keystore.properties
+        echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> keystore/keystore.properties
+        echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> keystore/keystore.properties
+        echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore/keystore.properties
+
+    - name: Build ${{ matrix.variant }} ${{ matrix.distribution }} APK
+      run: ./gradlew assemble${{ matrix.variant }}${{ matrix.distribution }}
+
+    - name: Build ${{ matrix.variant }} ${{ matrix.distribution }} Bundle
+      if: matrix.distribution == 'playstore'
+      run: ./gradlew bundle${{ matrix.variant }}${{ matrix.distribution }}
+
+    - name: Sign APK
+      uses: r0adkll/sign-android-release@v1
+      with:
+        releaseDirectory: app/build/outputs/apk/${{ matrix.variant }}${{ matrix.distribution }}/
+        signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+        alias: ${{ secrets.KEY_ALIAS }}
+        keyStorePassword: ${{ secrets.STORE_PASSWORD }}
+        keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+    - name: Upload APK artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: apk-${{ matrix.variant }}-${{ matrix.distribution }}
+        path: app/build/outputs/apk/
+
+    - name: Upload Bundle artifacts
+      if: matrix.distribution == 'playstore'
+      uses: actions/upload-artifact@v4
+      with:
+        name: bundle-${{ matrix.variant }}-${{ matrix.distribution }}
+        path: app/build/outputs/bundle/
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-release
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Extract version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        if [ -f CHANGELOG.md ]; then
+          awk '/^## \[?v?${{ steps.version.outputs.VERSION }}\]?/{flag=1;next}/^## /{flag=0}flag' CHANGELOG.md > current_changelog.md
+        else
+          echo "Release ${{ steps.version.outputs.VERSION }}" > current_changelog.md
+        fi
+        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+        cat current_changelog.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: AstralStream v${{ steps.version.outputs.VERSION }}
+        body: |
+          ## What's Changed
+          ${{ steps.changelog.outputs.CHANGELOG }}
+
+          ## Download
+          - **Free Version**: Download `AstralStream-free-github-release.apk`
+          - **Pro Version**: Download `AstralStream-pro-github-release.apk`
+          - **F-Droid Version**: Download `AstralStream-pro-fdroid-release.apk`
+
+          ## Verification
+          All APKs are signed with our release key. Verify the signature before installing.
+
+          ## Compatibility
+          - Minimum Android version: API 21 (Android 5.0)
+          - Target Android version: API 34 (Android 14)
+          - Supported architectures: arm64-v8a, armeabi-v7a, x86, x86_64
+        files: |
+          apk-*/*.apk
+        draft: false
+        prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+        generate_release_notes: true
+
+  deploy-playstore:
+    name: Deploy to Play Store
+    runs-on: ubuntu-latest
+    needs: build-release
+    if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, 'beta') && !contains(github.ref_name, 'alpha')
+    environment: production
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download Play Store artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: bundle-*-playstore
+        merge-multiple: true
+
+    - name: Deploy to Play Store
+      uses: r0adkll/upload-google-play@v1
+      with:
+        serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        packageName: com.astralstream.player
+        releaseFiles: "**/*.aab"
+        track: internal
+        status: draft

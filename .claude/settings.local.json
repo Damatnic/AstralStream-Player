@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gradlew.bat :app:assembleFreeDebug:*)",
+      "Bash(./gradlew:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(del \"C:\\Users\\damat\\Downloads\\nextplayer-main\\AstralStream\\android-native\\app\\src\\main\\java\\com\\astralstream\\player\\data\\database\\AstralStreamDatabase.kt\")",
+      "Bash(rm:*)",
+      "Bash(cmd /c gradlew.bat:*)",
+      "Bash(adb install:*)",
+      "Bash(adb logcat:*)",
+      "Bash(adb shell am start:*)",
+      "Bash(adb:*)",
+      "Bash(.gradlew.bat :app:assembleFreeDebug)",
+      "Bash(gradlew:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(dir:*)",
+      "Bash(build_app.bat)",
+      "Bash(powershell:*)",
+      "Bash(.gradlew.bat:*)",
+      "Bash(tree:*)",
+      "Bash(for module in app core data features player)",
+      "Bash(done)",
+      "Bash(git worktree:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "C:\\c\\Users\\damat\\Downloads\\nextplayer-main\\AstralStream\\android-native\\app\\build\\outputs\\apk\\free",
+      "C:\\c\\Users\\damat\\Downloads\\nextplayer-main\\AstralStream"
+    ]
+  }
+}

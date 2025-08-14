@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <group android:scaleX="0.8"
+         android:scaleY="0.8"
+         android:translateX="10.8"
+         android:translateY="10.8">
+    <!-- Play button triangle -->
+    <path android:fillColor="#87CEEB"
+          android:pathData="M35,25 L75,54 L35,83 Z"/>
+    <!-- Cosmic swirls around the play button -->
+    <path android:fillColor="#4682B4"
+          android:pathData="M25,30 Q40,20 50,35 Q60,50 45,60 Q30,50 25,30 Z"
+          android:fillAlpha="0.7"/>
+    <path android:fillColor="#87CEEB"
+          android:pathData="M70,25 Q85,15 90,30 Q85,45 70,40 Q65,25 70,25 Z"
+          android:fillAlpha="0.6"/>
+    <path android:fillColor="#B0E0E6"
+          android:pathData="M20,60 Q35,70 25,85 Q10,80 15,65 Q20,60 20,60 Z"
+          android:fillAlpha="0.5"/>
+    <!-- Stars/sparkles -->
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M20,20 L22,18 L24,20 L22,22 Z"/>
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M85,75 L87,73 L89,75 L87,77 Z"/>
+    <path android:fillColor="#87CEEB"
+          android:pathData="M75,15 L77,13 L79,15 L77,17 Z"/>
+  </group>
+</vector>

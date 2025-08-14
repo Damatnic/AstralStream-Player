@@ -1,0 +1,25 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = 'https://jitpack.io' }
+        maven { url = 'https://repo.gradle.org/gradle/libs-releases' }
+    }
+}
+
+rootProject.name = "AstralStream"
+include ':app'
+include ':player'
+include ':data'
+include ':features'
+// Temporarily disabled due to TensorFlow Lite compatibility issues
+// include ':ai'
+include ':core'

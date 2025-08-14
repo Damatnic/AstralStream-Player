@@ -1,0 +1,28 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"typescript.tsdk": "node_modules/typescript/lib",
+		"typescript.enablePromptUseWorkspaceTsdk": true,
+		"files.associations": {
+			"*.env.*": "dotenv"
+		},
+		"workbench.colorCustomizations": {
+			"activityBar.activeBackground": "#6366F1",
+			"activityBar.background": "#6366F1",
+			"activityBar.foreground": "#ffffff",
+			"activityBar.inactiveForeground": "#ffffff99",
+			"activityBarBadge.background": "#8B5CF6",
+			"activityBarBadge.foreground": "#ffffff",
+			"titleBar.activeBackground": "#6366F1",
+			"titleBar.activeForeground": "#ffffff",
+			"titleBar.inactiveBackground": "#6366F199",
+			"titleBar.inactiveForeground": "#ffffff99"
+		},
+		"peacock.color": "#6366F1",
+		"claudeCodeChat.permissions.yoloMode": true
+	}
+}
